@@ -100,7 +100,7 @@ describe("focus router", () => {
       // External API may be unavailable during tests
       console.log("Focus API unavailable during test");
     }
-  });
+  }, 15000); // Increase timeout for external API
 });
 
 describe("export router", () => {

@@ -59,3 +59,27 @@
 - [x] Seção de notícias econômicas no dashboard
 - [x] Serviço de busca de notícias
 - [x] Componente de exibição de notícias
+
+## Expansão - Mercados Globais e Calendário
+- [x] Cotações de bolsas globais em tempo real (Ibovespa, Dow Jones, S&P 500, Nasdaq, DAX, etc.)
+- [x] Calendário econômico com eventos importantes dos mercados
+- [x] Página dedicada de Mercados
+
+## Expansão - Feed RSS e Notícias
+- [x] Integração com feeds RSS reais de notícias econômicas (InfoMoney)
+- [x] Atualização automática de notícias em tempo real
+
+## Expansão - Novas Integrações de APIs
+- [x] IPEADATA - dados históricos econômicos e sociais
+- [x] SIDRA API (IBGE) - sistema de recuperação automática
+- [x] BCB API - integração completa
+- [x] BrasilAPI - endpoints modernos com CDN
+- [x] FRED API - Federal Reserve para comparações internacionais
+- [x] API do Tesouro Nacional - dados fiscais
+- [x] CAGED/MTE - dados de emprego formal
+
+## Página de Dados
+- [x] Aba Fiscal - Dados do Tesouro Nacional
+- [x] Aba Emprego - Dados do CAGED/MTE
+- [x] Aba Internacional - Dados do FRED (EUA)
+- [x] Aba Taxas - Taxas de juros via BrasilAPI

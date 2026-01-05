@@ -2,6 +2,8 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Newspaper,
   TrendingUp,
@@ -9,9 +11,12 @@ import {
   Globe,
   ExternalLink,
   Clock,
+  RefreshCw,
+  Rss,
 } from "lucide-react";
+import { useState } from "react";
 
-const CATEGORY_CONFIG = {
+const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof TrendingUp; color: string }> = {
   economia: {
     label: "Economia",
     icon: TrendingUp,
@@ -57,8 +62,9 @@ interface NewsItemProps {
   summary: string;
   source: string;
   sourceUrl: string;
+  link?: string;
   publishedAt: Date;
-  category: keyof typeof CATEGORY_CONFIG;
+  category: string;
   featured?: boolean;
 }
 
@@ -67,17 +73,19 @@ function NewsItem({
   summary,
   source,
   sourceUrl,
+  link,
   publishedAt,
   category,
   featured = false,
 }: NewsItemProps) {
-  const config = CATEGORY_CONFIG[category];
+  const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.economia;
   const Icon = config.icon;
+  const href = link || sourceUrl;
 
   if (featured) {
     return (
       <a
-        href={sourceUrl}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         className="block group"
@@ -112,7 +120,7 @@ function NewsItem({
 
   return (
     <a
-      href={sourceUrl}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="block group"
@@ -178,7 +186,24 @@ function NewsItemSkeleton({ featured = false }: { featured?: boolean }) {
 }
 
 export default function NewsSection() {
-  const { data: news, isLoading } = trpc.news.latest.useQuery({ limit: 6 });
+  const [activeTab, setActiveTab] = useState<"curated" | "rss">("curated");
+  
+  // Notícias curadas (estáticas)
+  const { data: curatedNews, isLoading: curatedLoading, refetch: refetchCurated } = trpc.news.latest.useQuery({ limit: 6 });
+  
+  // Notícias RSS (tempo real)
+  const { data: rssNews, isLoading: rssLoading, refetch: refetchRss } = trpc.news.rss.useQuery({ limit: 10 });
+
+  const handleRefresh = () => {
+    if (activeTab === "curated") {
+      refetchCurated();
+    } else {
+      refetchRss();
+    }
+  };
+
+  const isLoading = activeTab === "curated" ? curatedLoading : rssLoading;
+  const news = activeTab === "curated" ? curatedNews : rssNews;
 
   return (
     <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -188,58 +213,107 @@ export default function NewsSection() {
             <Newspaper className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Notícias Econômicas</CardTitle>
           </div>
-          <Badge variant="outline" className="text-xs">
-            Atualizado em tempo real
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Badge variant="outline" className="text-xs flex items-center gap-1">
+              <Rss className="h-3 w-3" />
+              Feed RSS
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-1">
-              <NewsItemSkeleton featured />
-            </div>
-            <div className="lg:col-span-2 space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <NewsItemSkeleton key={i} />
-              ))}
-            </div>
-          </div>
-        ) : news && news.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Featured news - first item */}
-            <div className="lg:col-span-1">
-              <NewsItem
-                title={news[0].title}
-                summary={news[0].summary}
-                source={news[0].source}
-                sourceUrl={news[0].sourceUrl}
-                publishedAt={news[0].publishedAt}
-                category={news[0].category}
-                featured
-              />
-            </div>
-            {/* Other news */}
-            <div className="lg:col-span-2 space-y-3">
-              {news.slice(1).map((item) => (
-                <NewsItem
-                  key={item.id}
-                  title={item.title}
-                  summary={item.summary}
-                  source={item.source}
-                  sourceUrl={item.sourceUrl}
-                  publishedAt={item.publishedAt}
-                  category={item.category}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <Newspaper className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>Nenhuma notícia disponível no momento</p>
-          </div>
-        )}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "curated" | "rss")} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="curated">Destaques</TabsTrigger>
+            <TabsTrigger value="rss">Feed em Tempo Real</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="curated">
+            {curatedLoading ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-1">
+                  <NewsItemSkeleton featured />
+                </div>
+                <div className="lg:col-span-2 space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <NewsItemSkeleton key={i} />
+                  ))}
+                </div>
+              </div>
+            ) : curatedNews && curatedNews.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-1">
+                  <NewsItem
+                    title={curatedNews[0].title}
+                    summary={curatedNews[0].summary}
+                    source={curatedNews[0].source}
+                    sourceUrl={curatedNews[0].sourceUrl}
+                    publishedAt={curatedNews[0].publishedAt}
+                    category={curatedNews[0].category}
+                    featured
+                  />
+                </div>
+                <div className="lg:col-span-2 space-y-3">
+                  {curatedNews.slice(1).map((item) => (
+                    <NewsItem
+                      key={item.id}
+                      title={item.title}
+                      summary={item.summary}
+                      source={item.source}
+                      sourceUrl={item.sourceUrl}
+                      publishedAt={item.publishedAt}
+                      category={item.category}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Newspaper className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhuma notícia disponível no momento</p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rss">
+            {rssLoading ? (
+              <div className="space-y-3">
+                {[...Array(6)].map((_, i) => (
+                  <NewsItemSkeleton key={i} />
+                ))}
+              </div>
+            ) : rssNews && rssNews.length > 0 ? (
+              <div className="space-y-3">
+                {rssNews.map((item) => (
+                  <NewsItem
+                    key={item.id}
+                    title={item.title}
+                    summary={item.summary}
+                    source={item.source}
+                    sourceUrl={item.sourceUrl}
+                    link={item.link}
+                    publishedAt={item.publishedAt}
+                    category={item.category}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Rss className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Não foi possível carregar o feed RSS</p>
+                <p className="text-xs mt-1">Tente novamente mais tarde</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

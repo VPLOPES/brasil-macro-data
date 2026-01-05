@@ -13,6 +13,23 @@ import {
 } from "./services/indicatorService";
 import { fetchFocusExpectations } from "./services/bcbService";
 import { getLatestNews, getNewsByCategory, getNewsSources } from "./services/newsService";
+import {
+  getGlobalMarkets,
+  getCommodities,
+  getEconomicCalendar,
+  getIndexQuote,
+} from "./services/marketService";
+import {
+  getIpeaData,
+  getIpeaAllSeries,
+  getBrasilApiTaxes,
+  getBrasilApiFeriados,
+  getFredData,
+  getFredAllSeries,
+  getTesouroData,
+  getCagedData,
+  getRssNews,
+} from "./services/externalApisService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -151,6 +168,101 @@ export const appRouter = router({
     // Get news sources
     sources: publicProcedure.query(() => {
       return getNewsSources();
+    }),
+
+    // Get RSS news from real feeds
+    rss: publicProcedure
+      .input(z.object({ limit: z.number().min(1).max(30).default(15) }).optional())
+      .query(async ({ input }) => {
+        const news = await getRssNews();
+        return news.slice(0, input?.limit || 15);
+      }),
+  }),
+
+  // Markets router - Global stock indices and commodities
+  markets: router({
+    // Get all global market indices
+    indices: publicProcedure.query(async () => {
+      return getGlobalMarkets();
+    }),
+
+    // Get commodities and currencies
+    commodities: publicProcedure.query(async () => {
+      return getCommodities();
+    }),
+
+    // Get single index quote
+    getQuote: publicProcedure
+      .input(z.object({ symbol: z.string() }))
+      .query(async ({ input }) => {
+        return getIndexQuote(input.symbol);
+      }),
+
+    // Get economic calendar
+    calendar: publicProcedure
+      .input(
+        z.object({
+          days: z.number().min(1).max(30).default(7),
+        }).optional()
+      )
+      .query(async () => {
+        return getEconomicCalendar();
+      }),
+  }),
+
+  // External APIs router
+  external: router({
+    // IPEADATA
+    ipea: router({
+      getSeries: publicProcedure
+        .input(z.object({ code: z.string(), startDate: z.string().optional() }))
+        .query(async ({ input }) => {
+          return getIpeaData(input.code, input.startDate);
+        }),
+      
+      getAllSeries: publicProcedure.query(async () => {
+        return getIpeaAllSeries();
+      }),
+    }),
+
+    // BrasilAPI
+    brasilApi: router({
+      taxes: publicProcedure.query(async () => {
+        return getBrasilApiTaxes();
+      }),
+      
+      feriados: publicProcedure
+        .input(z.object({ year: z.number().min(2000).max(2030) }))
+        .query(async ({ input }) => {
+          return getBrasilApiFeriados(input.year);
+        }),
+    }),
+
+    // FRED (Federal Reserve)
+    fred: router({
+      getSeries: publicProcedure
+        .input(z.object({ id: z.string() }))
+        .query(async ({ input }) => {
+          return getFredData(input.id);
+        }),
+      
+      getAllSeries: publicProcedure.query(async () => {
+        return getFredAllSeries();
+      }),
+    }),
+
+    // Tesouro Nacional
+    tesouro: router({
+      getData: publicProcedure.query(async () => {
+        return getTesouroData();
+      }),
+    }),
+
+    // CAGED (Emprego)
+    caged: router({
+      getData: publicProcedure.query(async () => {
+        return getCagedData();
+      }),
     }),
   }),
 

@@ -88,11 +88,17 @@ export default function Home() {
             <Link href="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
               Dashboard
             </Link>
+            <Link href="/markets" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              Mercados
+            </Link>
             <Link href="/calculator" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Calculadora
             </Link>
             <Link href="/focus" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Focus
+            </Link>
+            <Link href="/data" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              Dados
             </Link>
             <Link href="/api" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               API

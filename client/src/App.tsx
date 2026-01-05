@@ -11,6 +11,8 @@ import Export from "./pages/Export";
 import Api from "./pages/Api";
 import IndicatorDetail from "./pages/IndicatorDetail";
 import Alerts from "./pages/Alerts";
+import Markets from "./pages/Markets";
+import Data from "./pages/Data";
 
 function Router() {
   return (
@@ -22,6 +24,8 @@ function Router() {
       <Route path="/api" component={Api} />
       <Route path="/indicator/:code" component={IndicatorDetail} />
       <Route path="/alerts" component={Alerts} />
+      <Route path="/markets" component={Markets} />
+      <Route path="/data" component={Data} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
