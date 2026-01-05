@@ -12,6 +12,7 @@ import {
   INDICATORS_CONFIG,
 } from "./services/indicatorService";
 import { fetchFocusExpectations } from "./services/bcbService";
+import { getLatestNews, getNewsByCategory, getNewsSources } from "./services/newsService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -123,6 +124,33 @@ export const appRouter = router({
         { code: "SELIC", name: "SELIC", description: "Taxa básica de juros" },
         { code: "CDI", name: "CDI", description: "Certificado de depósito interbancário" },
       ];
+    }),
+  }),
+
+  // News router
+  news: router({
+    // Get latest news
+    latest: publicProcedure
+      .input(z.object({ limit: z.number().min(1).max(20).default(6) }).optional())
+      .query(async ({ input }) => {
+        return getLatestNews(input?.limit || 6);
+      }),
+
+    // Get news by category
+    byCategory: publicProcedure
+      .input(
+        z.object({
+          category: z.enum(["economia", "mercado", "politica", "internacional"]),
+          limit: z.number().min(1).max(20).default(5),
+        })
+      )
+      .query(async ({ input }) => {
+        return getNewsByCategory(input.category, input.limit);
+      }),
+
+    // Get news sources
+    sources: publicProcedure.query(() => {
+      return getNewsSources();
     }),
   }),
 

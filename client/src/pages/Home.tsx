@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
+import NewsSection from "@/components/NewsSection";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -269,6 +270,11 @@ export default function Home() {
               </Link>
             </CardContent>
           </Card>
+        </section>
+
+        {/* News Section */}
+        <section className="mb-8">
+          <NewsSection />
         </section>
 
         {/* Quick Actions */}

@@ -54,3 +54,8 @@
 ## Testes
 - [x] Testes automatizados para routers
 - [x] Validação de inputs da calculadora
+
+## Notícias Econômicas
+- [x] Seção de notícias econômicas no dashboard
+- [x] Serviço de busca de notícias
+- [x] Componente de exibição de notícias
