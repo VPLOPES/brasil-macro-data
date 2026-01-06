@@ -83,3 +83,14 @@
 - [x] Aba Emprego - Dados do CAGED/MTE
 - [x] Aba Internacional - Dados do FRED (EUA)
 - [x] Aba Taxas - Taxas de juros via BrasilAPI
+
+## Reformulação - Mercados e Notícias (v2)
+- [x] Corrigir integração de cotações de bolsas globais (dados reais)
+- [x] Adicionar colunas: Último, Máxima, Mínima, Variação, Var%, Hora
+- [x] Implementar filtros por região (Américas, Europa, Ásia, etc.)
+- [x] Adicionar seção de Commodities (Petróleo, Ouro, Minério, etc.)
+- [x] Adicionar seção de Moedas (USD, EUR, GBP, etc.)
+- [x] Reformular calendário econômico com dados reais
+- [x] Adicionar filtros: Hoje/Amanhã/Semana, País, Categoria, Importância
+- [x] Corrigir feed de notícias para dados em tempo real
+- [ ] Adicionar mais fontes de notícias (Valor, Bloomberg, etc.)

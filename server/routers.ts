@@ -198,6 +198,12 @@ export const appRouter = router({
         return getIndexQuote(input.symbol);
       }),
 
+    // Get currencies
+    currencies: publicProcedure.query(async () => {
+      const { getCurrencies } = await import("./services/marketService");
+      return getCurrencies();
+    }),
+
     // Get economic calendar
     calendar: publicProcedure
       .input(

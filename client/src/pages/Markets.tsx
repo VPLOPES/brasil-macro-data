@@ -3,6 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   TrendingUp,
   TrendingDown,
@@ -11,27 +20,133 @@ import {
   RefreshCw,
   Clock,
   BarChart3,
-  Coins,
+  Search,
+  Filter,
+  ChevronRight,
 } from "lucide-react";
 import { Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+
+type MarketQuote = {
+  symbol: string;
+  name: string;
+  country: string;
+  flag: string;
+  region: string;
+  category: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  open: number;
+  previousClose: number;
+  lastUpdate: string;
+  marketStatus: string;
+};
+
+type EconomicEvent = {
+  id: string;
+  date: string;
+  time: string;
+  datetime: string;
+  country: string;
+  countryCode: string;
+  flag: string;
+  event: string;
+  importance: 1 | 2 | 3;
+  actual?: string;
+  forecast?: string;
+  previous?: string;
+  category: string;
+  unit?: string;
+};
 
 export default function Markets() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState("indices");
+  const [regionFilter, setRegionFilter] = useState("all");
+  const [calendarFilter, setCalendarFilter] = useState("today");
+  const [importanceFilter, setImportanceFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   
-  const { data: indices, isLoading: indicesLoading, refetch: refetchIndices } = trpc.markets.indices.useQuery();
+  const { data: allMarkets, isLoading: marketsLoading, refetch: refetchMarkets } = trpc.markets.indices.useQuery();
   const { data: commodities, isLoading: commoditiesLoading, refetch: refetchCommodities } = trpc.markets.commodities.useQuery();
+  const { data: currencies, isLoading: currenciesLoading, refetch: refetchCurrencies } = trpc.markets.currencies.useQuery();
   const { data: calendar, isLoading: calendarLoading } = trpc.markets.calendar.useQuery();
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      refetchIndices();
+      refetchMarkets();
       refetchCommodities();
+      refetchCurrencies();
       setLastUpdate(new Date());
-    }, 60000);
+    }, 30000);
     return () => clearInterval(interval);
-  }, [refetchIndices, refetchCommodities]);
+  }, [refetchMarkets, refetchCommodities, refetchCurrencies]);
+
+  // Filter indices by region
+  const filteredIndices = useMemo(() => {
+    if (!allMarkets) return [];
+    let filtered = allMarkets;
+    
+    if (regionFilter !== "all") {
+      filtered = filtered.filter((m: MarketQuote) => m.region === regionFilter);
+    }
+    
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((m: MarketQuote) => 
+        m.name.toLowerCase().includes(term) || 
+        m.symbol.toLowerCase().includes(term) ||
+        m.country.toLowerCase().includes(term)
+      );
+    }
+    
+    return filtered;
+  }, [allMarkets, regionFilter, searchTerm]);
+
+  // Filter calendar events
+  const filteredCalendar = useMemo(() => {
+    if (!calendar) return [];
+    let filtered = [...calendar];
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const tomorrow = new Date(now.getTime() + 86400000).toISOString().split("T")[0];
+    const weekEnd = new Date(now.getTime() + 7 * 86400000).toISOString().split("T")[0];
+    
+    // Filter by date range
+    switch (calendarFilter) {
+      case "yesterday":
+        const yesterday = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+        filtered = filtered.filter((e: EconomicEvent) => e.date === yesterday);
+        break;
+      case "today":
+        filtered = filtered.filter((e: EconomicEvent) => e.date === today);
+        break;
+      case "tomorrow":
+        filtered = filtered.filter((e: EconomicEvent) => e.date === tomorrow);
+        break;
+      case "week":
+        filtered = filtered.filter((e: EconomicEvent) => e.date >= today && e.date <= weekEnd);
+        break;
+    }
+    
+    // Filter by importance
+    if (importanceFilter !== "all") {
+      const imp = parseInt(importanceFilter);
+      filtered = filtered.filter((e: EconomicEvent) => e.importance >= imp);
+    }
+    
+    // Filter by country
+    if (countryFilter !== "all") {
+      filtered = filtered.filter((e: EconomicEvent) => e.countryCode === countryFilter);
+    }
+    
+    return filtered;
+  }, [calendar, calendarFilter, importanceFilter, countryFilter]);
 
   const formatNumber = (num: number, decimals = 2) => {
     return num.toLocaleString("pt-BR", {
@@ -40,23 +155,8 @@ export default function Markets() {
     });
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = date.getTime() - now.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    
-    if (diffMs < 0) {
-      // Evento passado
-      return "Concluído";
-    } else if (diffMins < 60) {
-      return `${diffMins}m`;
-    } else if (diffHours < 24) {
-      return `${diffHours}h ${diffMins % 60}m`;
-    } else {
-      return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-    }
+  const formatTime = (time: string) => {
+    return time;
   };
 
   const getImportanceStars = (importance: number) => {
@@ -69,6 +169,115 @@ export default function Markets() {
       case 2: return "text-yellow-500";
       default: return "text-muted-foreground";
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("pt-BR", { 
+      weekday: "long", 
+      day: "numeric", 
+      month: "long", 
+      year: "numeric" 
+    });
+  };
+
+  // Group calendar events by date
+  const groupedCalendar = useMemo(() => {
+    const groups: Record<string, EconomicEvent[]> = {};
+    for (const event of filteredCalendar) {
+      if (!groups[event.date]) {
+        groups[event.date] = [];
+      }
+      groups[event.date].push(event);
+    }
+    return groups;
+  }, [filteredCalendar]);
+
+  const renderMarketTable = (data: MarketQuote[] | undefined, loading: boolean, showRegion = false) => {
+    if (loading) {
+      return (
+        <div className="space-y-2">
+          {[...Array(10)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      );
+    }
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          Nenhum dado disponível
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border text-xs text-muted-foreground uppercase">
+              <th className="text-left py-3 px-2 font-medium">Nome</th>
+              <th className="text-right py-3 px-2 font-medium">Último</th>
+              <th className="text-right py-3 px-2 font-medium">Máxima</th>
+              <th className="text-right py-3 px-2 font-medium">Mínima</th>
+              <th className="text-right py-3 px-2 font-medium">Variação</th>
+              <th className="text-right py-3 px-2 font-medium">Var. %</th>
+              <th className="text-right py-3 px-2 font-medium">Hora</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr
+                key={item.symbol}
+                className="border-b border-border/50 hover:bg-accent/30 transition-colors"
+              >
+                <td className="py-3 px-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{item.flag}</span>
+                    <div>
+                      <span className="font-medium">{item.name}</span>
+                      {showRegion && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {item.country}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="text-right py-3 px-2 font-mono font-medium">
+                  {formatNumber(item.price, item.category === "currency" ? 4 : 2)}
+                </td>
+                <td className="text-right py-3 px-2 font-mono text-muted-foreground text-sm">
+                  {formatNumber(item.high, item.category === "currency" ? 4 : 2)}
+                </td>
+                <td className="text-right py-3 px-2 font-mono text-muted-foreground text-sm">
+                  {formatNumber(item.low, item.category === "currency" ? 4 : 2)}
+                </td>
+                <td className={`text-right py-3 px-2 font-mono ${
+                  item.change >= 0 ? "text-green-500" : "text-red-500"
+                }`}>
+                  {item.change >= 0 ? "+" : ""}{formatNumber(item.change, item.category === "currency" ? 4 : 2)}
+                </td>
+                <td className={`text-right py-3 px-2 font-mono ${
+                  item.changePercent >= 0 ? "text-green-500" : "text-red-500"
+                }`}>
+                  <div className="flex items-center justify-end gap-1">
+                    {item.changePercent >= 0 ? "+" : ""}{formatNumber(item.changePercent)}%
+                  </div>
+                </td>
+                <td className="text-right py-3 px-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-end gap-1">
+                    {item.lastUpdate.split(" ")[1] || item.lastUpdate}
+                    <Clock className="h-3 w-3 opacity-50" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   return (
@@ -112,301 +321,308 @@ export default function Markets() {
       <main className="container py-8 space-y-8">
         {/* Page Title */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Mercados Globais</h1>
-            <p className="text-muted-foreground mt-1">
-              Cotações das principais bolsas e calendário econômico
-            </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">Mercados</h1>
+            <ChevronRight className="h-6 w-6 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>Atualizado: {lastUpdate.toLocaleTimeString("pt-BR")}</span>
+              <span>Horário atual: {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (GMT-3)</span>
             </div>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
-                refetchIndices();
+                refetchMarkets();
                 refetchCommodities();
+                refetchCurrencies();
                 setLastUpdate(new Date());
               }}
-              className="p-2 rounded-lg hover:bg-accent transition-colors"
             >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content - Indices and Commodities */}
-          <div className="lg:col-span-2 space-y-6">
-            <Tabs defaultValue="indices" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="indices" className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Índices Globais
-                </TabsTrigger>
-                <TabsTrigger value="commodities" className="flex items-center gap-2">
-                  <Coins className="h-4 w-4" />
-                  Commodities
-                </TabsTrigger>
-              </TabsList>
+        {/* Main Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-auto">
+            <TabsTrigger value="indices">Índices</TabsTrigger>
+            <TabsTrigger value="commodities">Commodities</TabsTrigger>
+            <TabsTrigger value="currencies">Moedas</TabsTrigger>
+            <TabsTrigger value="calendar">Calendário Econômico</TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="indices" className="mt-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">Principais Bolsas</CardTitle>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Dados em tempo real
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {indicesLoading ? (
-                      <div className="space-y-3">
-                        {[...Array(10)].map((_, i) => (
-                          <Skeleton key={i} className="h-12 w-full" />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-border text-xs text-muted-foreground">
-                              <th className="text-left py-3 px-2">Nome</th>
-                              <th className="text-right py-3 px-2">Último</th>
-                              <th className="text-right py-3 px-2">Máxima</th>
-                              <th className="text-right py-3 px-2">Mínima</th>
-                              <th className="text-right py-3 px-2">Variação</th>
-                              <th className="text-right py-3 px-2">Var. %</th>
-                              <th className="text-right py-3 px-2">Hora</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {indices?.map((index) => (
-                              <tr
-                                key={index.symbol}
-                                className="border-b border-border/50 hover:bg-accent/50 transition-colors"
-                              >
-                                <td className="py-3 px-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{index.flag}</span>
-                                    <span className="font-medium">{index.name}</span>
-                                  </div>
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono">
-                                  {formatNumber(index.price)}
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono text-muted-foreground">
-                                  {formatNumber(index.high)}
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono text-muted-foreground">
-                                  {formatNumber(index.low)}
-                                </td>
-                                <td className={`text-right py-3 px-2 font-mono ${
-                                  index.change >= 0 ? "text-green-500" : "text-red-500"
-                                }`}>
-                                  {index.change >= 0 ? "+" : ""}{formatNumber(index.change)}
-                                </td>
-                                <td className={`text-right py-3 px-2 font-mono ${
-                                  index.changePercent >= 0 ? "text-green-500" : "text-red-500"
-                                }`}>
-                                  <div className="flex items-center justify-end gap-1">
-                                    {index.changePercent >= 0 ? (
-                                      <TrendingUp className="h-3 w-3" />
-                                    ) : (
-                                      <TrendingDown className="h-3 w-3" />
-                                    )}
-                                    {index.changePercent >= 0 ? "+" : ""}{formatNumber(index.changePercent)}%
-                                  </div>
-                                </td>
-                                <td className="text-right py-3 px-2 text-xs text-muted-foreground">
-                                  {new Date(index.lastUpdate).toLocaleTimeString("pt-BR", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="commodities" className="mt-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Commodities e Moedas</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {commoditiesLoading ? (
-                      <div className="space-y-3">
-                        {[...Array(6)].map((_, i) => (
-                          <Skeleton key={i} className="h-12 w-full" />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-border text-xs text-muted-foreground">
-                              <th className="text-left py-3 px-2">Nome</th>
-                              <th className="text-right py-3 px-2">Último</th>
-                              <th className="text-right py-3 px-2">Máxima</th>
-                              <th className="text-right py-3 px-2">Mínima</th>
-                              <th className="text-right py-3 px-2">Variação</th>
-                              <th className="text-right py-3 px-2">Var. %</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {commodities?.map((commodity) => (
-                              <tr
-                                key={commodity.symbol}
-                                className="border-b border-border/50 hover:bg-accent/50 transition-colors"
-                              >
-                                <td className="py-3 px-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{commodity.flag}</span>
-                                    <span className="font-medium">{commodity.name}</span>
-                                  </div>
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono">
-                                  {commodity.symbol.includes("BRL") ? "R$ " : "$ "}
-                                  {formatNumber(commodity.price)}
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono text-muted-foreground">
-                                  {formatNumber(commodity.high)}
-                                </td>
-                                <td className="text-right py-3 px-2 font-mono text-muted-foreground">
-                                  {formatNumber(commodity.low)}
-                                </td>
-                                <td className={`text-right py-3 px-2 font-mono ${
-                                  commodity.change >= 0 ? "text-green-500" : "text-red-500"
-                                }`}>
-                                  {commodity.change >= 0 ? "+" : ""}{formatNumber(commodity.change)}
-                                </td>
-                                <td className={`text-right py-3 px-2 font-mono ${
-                                  commodity.changePercent >= 0 ? "text-green-500" : "text-red-500"
-                                }`}>
-                                  <div className="flex items-center justify-end gap-1">
-                                    {commodity.changePercent >= 0 ? (
-                                      <TrendingUp className="h-3 w-3" />
-                                    ) : (
-                                      <TrendingDown className="h-3 w-3" />
-                                    )}
-                                    {commodity.changePercent >= 0 ? "+" : ""}{formatNumber(commodity.changePercent)}%
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Sidebar - Economic Calendar */}
-          <div className="space-y-6">
+          {/* Indices Tab */}
+          <TabsContent value="indices" className="mt-6">
             <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Calendário Econômico</CardTitle>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <CardTitle className="text-xl">Índices Globais</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar índice..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 w-48"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Próximos eventos que podem impactar o mercado brasileiro
-                </p>
+                
+                {/* Region Filters */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Button
+                    variant={regionFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRegionFilter("all")}
+                  >
+                    Principais
+                  </Button>
+                  <Button
+                    variant={regionFilter === "americas" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRegionFilter("americas")}
+                  >
+                    Américas
+                  </Button>
+                  <Button
+                    variant={regionFilter === "europe" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRegionFilter("europe")}
+                  >
+                    Europa
+                  </Button>
+                  <Button
+                    variant={regionFilter === "asia" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRegionFilter("asia")}
+                  >
+                    Ásia e Oceania
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {renderMarketTable(filteredIndices, marketsLoading, true)}
+                
+                {filteredIndices.length > 0 && (
+                  <div className="text-right mt-4">
+                    <Button variant="link" className="text-primary">
+                      Exibir todos os índices
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Commodities Tab */}
+          <TabsContent value="commodities" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Commodities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderMarketTable(commodities, commoditiesLoading)}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Currencies Tab */}
+          <TabsContent value="currencies" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Moedas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderMarketTable(currencies, currenciesLoading)}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Economic Calendar Tab */}
+          <TabsContent value="calendar" className="mt-6">
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Calendário Econômico
+                    </CardTitle>
+                    <span className="text-sm text-muted-foreground">
+                      Todos os dados são transmitidos e atualizados automaticamente
+                    </span>
+                  </div>
+                  
+                  {/* Calendar Filters */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={calendarFilter === "yesterday" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCalendarFilter("yesterday")}
+                    >
+                      Ontem
+                    </Button>
+                    <Button
+                      variant={calendarFilter === "today" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCalendarFilter("today")}
+                    >
+                      Hoje
+                    </Button>
+                    <Button
+                      variant={calendarFilter === "tomorrow" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCalendarFilter("tomorrow")}
+                    >
+                      Amanhã
+                    </Button>
+                    <Button
+                      variant={calendarFilter === "week" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCalendarFilter("week")}
+                    >
+                      Esta semana
+                    </Button>
+                  </div>
+                  
+                  {/* Additional Filters */}
+                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">País:</span>
+                      <Select value={countryFilter} onValueChange={setCountryFilter}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="BRL">🇧🇷 Brasil</SelectItem>
+                          <SelectItem value="USD">🇺🇸 EUA</SelectItem>
+                          <SelectItem value="EUR">🇪🇺 Zona Euro</SelectItem>
+                          <SelectItem value="GBP">🇬🇧 Reino Unido</SelectItem>
+                          <SelectItem value="JPY">🇯🇵 Japão</SelectItem>
+                          <SelectItem value="CNY">🇨🇳 China</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Importância:</span>
+                      <Select value={importanceFilter} onValueChange={setImportanceFilter}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Qualquer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Qualquer</SelectItem>
+                          <SelectItem value="3">★★★ Alta</SelectItem>
+                          <SelectItem value="2">★★☆ Média+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-auto text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      Horário: GMT-3 (Brasília)
+                    </div>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {calendarLoading ? (
-                  <div className="space-y-3">
-                    {[...Array(8)].map((_, i) => (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
                       <Skeleton key={i} className="h-16 w-full" />
                     ))}
                   </div>
+                ) : Object.keys(groupedCalendar).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nenhum evento encontrado para os filtros selecionados
+                  </div>
                 ) : (
-                  <div className="space-y-1">
-                    {calendar?.slice(0, 15).map((event) => (
-                      <div
-                        key={event.id}
-                        className="p-3 rounded-lg hover:bg-accent/50 transition-colors border-l-2"
-                        style={{
-                          borderLeftColor: event.importance === 3 ? "#ef4444" : event.importance === 2 ? "#eab308" : "#6b7280"
-                        }}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm">{event.flag}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {event.currency}
-                              </Badge>
-                              <span className={`text-xs ${getImportanceColor(event.importance)}`}>
-                                {getImportanceStars(event.importance)}
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium truncate">{event.event}</p>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              {event.actual && (
-                                <span>
-                                  Atual: <span className="text-foreground font-medium">{event.actual}</span>
-                                </span>
-                              )}
-                              {event.forecast && (
-                                <span>
-                                  Proj: <span className="text-foreground">{event.forecast}</span>
-                                </span>
-                              )}
-                              {event.previous && (
-                                <span>
-                                  Ant: <span className="text-muted-foreground">{event.previous}</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs font-medium text-primary">
-                              {formatTime(event.time)}
-                            </span>
-                          </div>
+                  <div className="space-y-6">
+                    {Object.entries(groupedCalendar).map(([date, events]) => (
+                      <div key={date}>
+                        <div className="sticky top-0 bg-background py-2 mb-2">
+                          <h3 className="text-sm font-medium text-muted-foreground capitalize">
+                            {formatDate(date)}
+                          </h3>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-border text-xs text-muted-foreground uppercase">
+                                <th className="text-left py-2 px-2 font-medium w-16">Hora</th>
+                                <th className="text-left py-2 px-2 font-medium w-20">Moeda</th>
+                                <th className="text-left py-2 px-2 font-medium">Evento</th>
+                                <th className="text-center py-2 px-2 font-medium w-20">Import.</th>
+                                <th className="text-right py-2 px-2 font-medium w-24">Atual</th>
+                                <th className="text-right py-2 px-2 font-medium w-24">Projeção</th>
+                                <th className="text-right py-2 px-2 font-medium w-24">Anterior</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {events.map((event) => (
+                                <tr
+                                  key={event.id}
+                                  className="border-b border-border/50 hover:bg-accent/30 transition-colors"
+                                >
+                                  <td className="py-3 px-2 text-sm font-medium">
+                                    {formatTime(event.time)}
+                                  </td>
+                                  <td className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-base">{event.flag}</span>
+                                      <span className="text-xs font-medium">{event.countryCode}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-2">
+                                    <span className="text-sm">{event.event}</span>
+                                  </td>
+                                  <td className="py-3 px-2 text-center">
+                                    <span className={`text-sm ${getImportanceColor(event.importance)}`}>
+                                      {getImportanceStars(event.importance)}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-2 text-right">
+                                    {event.actual ? (
+                                      <span className="text-sm font-medium text-primary">
+                                        {event.actual}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-sm text-muted-foreground">
+                                    {event.forecast || "-"}
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-sm text-muted-foreground">
+                                    {event.previous || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Legend */}
-            <Card>
-              <CardContent className="pt-4">
-                <h4 className="text-sm font-medium mb-3">Importância dos Eventos</h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-red-500">★★★</span>
-                    <span>Alta - Grande impacto no mercado</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-yellow-500">★★☆</span>
-                    <span>Média - Impacto moderado</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">★☆☆</span>
-                    <span>Baixa - Impacto limitado</span>
-                  </div>
+                
+                <div className="text-right mt-4">
+                  <Button variant="link" className="text-primary">
+                    Mostrar Todos os Eventos
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
